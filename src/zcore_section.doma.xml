@@ -1,0 +1,61 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<abapGit version="v1.0.0" serializer="LCL_OBJECT_DOMA" serializer_version="v1.0.0">
+ <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+  <asx:values>
+   <DD01V>
+    <DOMNAME>ZCORE_SECTION</DOMNAME>
+    <DDLANGUAGE>E</DDLANGUAGE>
+    <DATATYPE>CHAR</DATATYPE>
+    <LENG>000003</LENG>
+    <OUTPUTLEN>000003</OUTPUTLEN>
+    <VALEXI>X</VALEXI>
+    <DDTEXT>Section in DW Build</DDTEXT>
+    <DOMMASTER>E</DOMMASTER>
+   </DD01V>
+   <DD07V_TAB>
+    <DD07V>
+     <DOMNAME>ZCORE_SECTION</DOMNAME>
+     <VALPOS>0001</VALPOS>
+     <DDLANGUAGE>E</DDLANGUAGE>
+     <DOMVALUE_L>MDA</DOMVALUE_L>
+     <DDTEXT>Master Data Section</DDTEXT>
+    </DD07V>
+    <DD07V>
+     <DOMNAME>ZCORE_SECTION</DOMNAME>
+     <VALPOS>0002</VALPOS>
+     <DDLANGUAGE>E</DDLANGUAGE>
+     <DOMVALUE_L>EDW</DOMVALUE_L>
+     <DDTEXT>EDW Data Section</DDTEXT>
+    </DD07V>
+    <DD07V>
+     <DOMNAME>ZCORE_SECTION</DOMNAME>
+     <VALPOS>0003</VALPOS>
+     <DDLANGUAGE>E</DDLANGUAGE>
+     <DOMVALUE_L>IAP</DOMVALUE_L>
+     <DDTEXT>Information and Transformation Section</DDTEXT>
+    </DD07V>
+    <DD07V>
+     <DOMNAME>ZCORE_SECTION</DOMNAME>
+     <VALPOS>0004</VALPOS>
+     <DDLANGUAGE>E</DDLANGUAGE>
+     <DOMVALUE_L>EXZ</DOMVALUE_L>
+     <DDTEXT>Exchange Zone</DDTEXT>
+    </DD07V>
+    <DD07V>
+     <DOMNAME>ZCORE_SECTION</DOMNAME>
+     <VALPOS>0005</VALPOS>
+     <DDLANGUAGE>E</DDLANGUAGE>
+     <DOMVALUE_L>AAV</DOMVALUE_L>
+     <DDTEXT>Analytics and Reports</DDTEXT>
+    </DD07V>
+    <DD07V>
+     <DOMNAME>ZCORE_SECTION</DOMNAME>
+     <VALPOS>0006</VALPOS>
+     <DDLANGUAGE>E</DDLANGUAGE>
+     <DOMVALUE_L>SYS</DOMVALUE_L>
+     <DDTEXT>System specific</DDTEXT>
+    </DD07V>
+   </DD07V_TAB>
+  </asx:values>
+ </asx:abap>
+</abapGit>

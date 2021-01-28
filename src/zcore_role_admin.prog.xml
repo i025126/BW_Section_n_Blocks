@@ -1,0 +1,118 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<abapGit version="v1.0.0" serializer="LCL_OBJECT_PROG" serializer_version="v1.0.0">
+ <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+  <asx:values>
+   <PROGDIR>
+    <NAME>ZCORE_ROLE_ADMIN</NAME>
+    <DBAPL>S</DBAPL>
+    <SUBC>1</SUBC>
+    <FIXPT>X</FIXPT>
+    <LDBNAME>D$S</LDBNAME>
+    <UCCHECK>X</UCCHECK>
+   </PROGDIR>
+   <TPOOL>
+    <item>
+     <ID>I</ID>
+     <KEY>AD1</KEY>
+     <ENTRY>Adapt existing roles</ENTRY>
+     <LENGTH>40</LENGTH>
+    </item>
+    <item>
+     <ID>I</ID>
+     <KEY>GN1</KEY>
+     <ENTRY>Generate new roles</ENTRY>
+     <LENGTH>28</LENGTH>
+    </item>
+    <item>
+     <ID>I</ID>
+     <KEY>TB1</KEY>
+     <ENTRY>Generate all roles defined from table ZCORE_GEN</ENTRY>
+     <LENGTH>60</LENGTH>
+    </item>
+    <item>
+     <ID>I</ID>
+     <KEY>TR1</KEY>
+     <ENTRY>Trigger the &quot;Create InfoArea&quot; action</ENTRY>
+     <LENGTH>72</LENGTH>
+    </item>
+    <item>
+     <ID>R</ID>
+     <ENTRY>Program to create and adjust roles</ENTRY>
+     <LENGTH>34</LENGTH>
+    </item>
+    <item>
+     <ID>S</ID>
+     <KEY>PT_1BLK</KEY>
+     <ENTRY>Generate for block</ENTRY>
+     <LENGTH>26</LENGTH>
+    </item>
+    <item>
+     <ID>S</ID>
+     <KEY>PV_1CLS</KEY>
+     <ENTRY>Generate for Cluster</ENTRY>
+     <LENGTH>28</LENGTH>
+    </item>
+    <item>
+     <ID>S</ID>
+     <KEY>PV_1RTY</KEY>
+     <ENTRY>Genrate Role type</ENTRY>
+     <LENGTH>25</LENGTH>
+    </item>
+    <item>
+     <ID>S</ID>
+     <KEY>PV_2CLS</KEY>
+     <ENTRY>Adapt only for one cluster</ENTRY>
+     <LENGTH>34</LENGTH>
+    </item>
+    <item>
+     <ID>S</ID>
+     <KEY>PV_2RTY</KEY>
+     <ENTRY>Adapt for the roletype</ENTRY>
+     <LENGTH>30</LENGTH>
+    </item>
+    <item>
+     <ID>S</ID>
+     <KEY>PV_3BLK</KEY>
+     <ENTRY>Pretent the block is created</ENTRY>
+     <LENGTH>36</LENGTH>
+    </item>
+    <item>
+     <ID>S</ID>
+     <KEY>PV_TXT</KEY>
+     <ENTRY>aDSO as 0TCA_DS03 (txt)</ENTRY>
+     <LENGTH>31</LENGTH>
+    </item>
+    <item>
+     <ID>S</ID>
+     <KEY>PV_VAL</KEY>
+     <ENTRY>aDSOas 0TCA_DS01 (auth)</ENTRY>
+     <LENGTH>31</LENGTH>
+    </item>
+    <item>
+     <ID>S</ID>
+     <KEY>P_ADAPT</KEY>
+     <ENTRY>Adapt existing roles</ENTRY>
+     <LENGTH>28</LENGTH>
+    </item>
+    <item>
+     <ID>S</ID>
+     <KEY>P_GENR</KEY>
+     <ENTRY>Generate new roles</ENTRY>
+     <LENGTH>26</LENGTH>
+    </item>
+    <item>
+     <ID>S</ID>
+     <KEY>P_GETAB</KEY>
+     <ENTRY>Generate roles from ZCORE_ROLE</ENTRY>
+     <LENGTH>38</LENGTH>
+    </item>
+    <item>
+     <ID>S</ID>
+     <KEY>P_TRIG</KEY>
+     <ENTRY>Trigger ZCORE_ROLE_ACTION</ENTRY>
+     <LENGTH>33</LENGTH>
+    </item>
+   </TPOOL>
+  </asx:values>
+ </asx:abap>
+</abapGit>
