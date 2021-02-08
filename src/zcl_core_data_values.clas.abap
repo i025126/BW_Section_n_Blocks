@@ -564,10 +564,12 @@ CLASS zcl_core_data_values IMPLEMENTATION.
         lv_action = gc_action-nothing.
       endif.
 
+    data(lv_auth_block) = zcl_core_role_admin=>get_virtual_block( iv_blocktype = 'AUTH' ).
+    data(lv_all_block)  = zcl_core_role_admin=>get_virtual_block( iv_blocktype = 'ALL' iv_cluster = iv_cluster ).
     "" We by default is processing the xALL block
     CALL METHOD lr_processing->create_data_role_for_block
       EXPORTING
-        iv_block     = zcl_core_role_admin=>get_virtual_block( iv_blocktype = 'ALL' iv_cluster = iv_cluster )
+        iv_block     = lv_all_block
         iv_action    = lv_action
       IMPORTING
         et_alltext   = DATA(lt_text)
@@ -579,7 +581,9 @@ CLASS zcl_core_data_values IMPLEMENTATION.
     SELECT docblock
         FROM zi_core_blocksinsystem
         WHERE doccluster = @iv_cluster AND
-              docblock   IN @it_block
+              docblock   IN @it_block and
+              docblock   <> @lv_auth_block and
+              docblock   <> @lv_all_block
         INTO TABLE @DATA(lt_block).
 
     DATA lv_block TYPE zcore_block.
@@ -900,7 +904,7 @@ CLASS zcl_core_data_values IMPLEMENTATION.
     LOOP AT lt_objects INTO DATA(ls_objects).
       ls_objects-doccluster = nv_cluster.
       ls_objects-docsection = 'AAV'.
-      ls_objects-docblock   = |{ nv_cluster }{ zcl_core_role_admin=>get_virtual_block( iv_blocktype = 'ALL' iv_cluster = nv_cluster ) }|.
+      ls_objects-docblock   = zcl_core_role_admin=>get_virtual_block( iv_blocktype = 'ALL' iv_cluster = nv_cluster ).
       INSERT ls_objects INTO TABLE rts_objects.
     ENDLOOP.
 

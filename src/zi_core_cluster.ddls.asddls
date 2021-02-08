@@ -4,7 +4,7 @@
 @AccessControl.authorizationCheck: #CHECK
 @EndUserText.label: 'DW Clusters'
 define view ZI_CORE_Cluster as 
-   select distinct from rsdarea
+   select distinct from rsdarea inner join zcore_setup on zcore_setup.customizid = 'BW'
    
  association[0..*] to ZI_CORE_ClusterT as _Text on _Text.DocCluster = $projection.DocCluster
  
@@ -18,6 +18,6 @@ define view ZI_CORE_Cluster as
 }
 where
   objvers    = 'A' and
-  infoarea_p = 'XSYS_ALL'
+  infoarea_p = zcore_setup.infoarea_cluster
 group by 
   infoarea

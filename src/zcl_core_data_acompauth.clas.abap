@@ -22,7 +22,7 @@ CLASS zcl_core_data_acompauth IMPLEMENTATION.
     "" Since the only values we need authorization for is in the ADSO
     "" ASYSPDSTB
 
-    data: lt_acompauth type STANDARD TABLE OF /bic/oiacompauth.
+    data: lt_acompauth type STANDARD TABLE OF char10.
     append lines of super->zif_data_role_value~get_values_from_master(  ) to lt_acompauth.
 
     TRY.

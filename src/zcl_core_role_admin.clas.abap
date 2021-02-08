@@ -5,19 +5,19 @@ CLASS zcl_core_role_admin DEFINITION
 
   PUBLIC SECTION.
 
-    TYPES:
-      BEGIN OF gtys_datetime,
-        c_date TYPE char50,
-        c_time TYPE char50,
-      END OF gtys_datetime,
-      gtyt_datetim     TYPE STANDARD TABLE OF gtys_datetime WITH NON-UNIQUE DEFAULT KEY,
-      gtyt_release     TYPE STANDARD TABLE OF syst_saprl WITH NON-UNIQUE DEFAULT KEY,
-      gtyt_loaded_agrs TYPE STANDARD TABLE OF agr_name WITH NON-UNIQUE DEFAULT KEY,
-      BEGIN OF gtys_role,
-        date        TYPE gtyt_datetim,
-        release     TYPE gtyt_release,
-        loaded_agrs TYPE gtyt_loaded_agrs,
-      END OF gtys_role.
+*    TYPES:
+*      BEGIN OF gtys_datetime,
+*        c_date TYPE char50,
+*        c_time TYPE char50,
+*      END OF gtys_datetime,
+*      gtyt_datetim     TYPE STANDARD TABLE OF gtys_datetime WITH NON-UNIQUE DEFAULT KEY,
+*      gtyt_release     TYPE STANDARD TABLE OF syst_saprl WITH NON-UNIQUE DEFAULT KEY,
+*      gtyt_loaded_agrs TYPE STANDARD TABLE OF agr_name WITH NON-UNIQUE DEFAULT KEY,
+*      BEGIN OF gtys_role,
+*        date        TYPE gtyt_datetim,
+*        release     TYPE gtyt_release,
+*        loaded_agrs TYPE gtyt_loaded_agrs,
+*      END OF gtys_role.
 
     TYPES:
       gtyv_action       type char1,
@@ -31,24 +31,19 @@ CLASS zcl_core_role_admin DEFINITION
       gtyts_role_processing TYPE SORTED TABLE OF gtys_role_processing WITH UNIQUE KEY doccluster docblock roletype.
 
     TYPES:
+      "! Range of role type for processing
       gtyt_rng_roletype TYPE RANGE OF zcore_roletype,
+      "! Range of blocks to be processed
       gtyt_rng_block    TYPE RANGE OF zcore_block.
 
-
-    CONSTANTS:
-      begin of gc_action,
-        report        type gtyv_action value 'R',
-        cleandroles   type gtyv_action value 'D',
-        Notmaintained type gtyv_action value 'N',
-        all           type gtyv_action value 'A',
-      end of gc_action,
+    class-data:
       BEGIN OF gc_section,
-        mda TYPE zcore_section VALUE 'MDA',
-        edw TYPE zcore_section VALUE 'EDW',
-        iap TYPE zcore_section VALUE 'IAP',
+        sys TYPE zcore_section VALUE 'SYS',
         exz TYPE zcore_section VALUE 'EXZ',
         aav TYPE zcore_section VALUE 'AAV',
-        sys TYPE zcore_section VALUE 'SYS',
+        iap TYPE zcore_section VALUE 'IAP',
+        edw TYPE zcore_section VALUE 'EDW',
+        mda TYPE zcore_section VALUE 'MDA',
       END OF gc_section,
       BEGIN OF gc_prefix,
         role_prefix     TYPE string VALUE 'BW4',
@@ -57,7 +52,21 @@ CLASS zcl_core_role_admin DEFINITION
         " This one controls the length of the cluster
         " be sure to change how this one looks
         garbage_cluster TYPE string VALUE 'Z',
+        adso_for_text   type string value 'SYSAWSTX',
+        adso_for_auth   type string value 'SYSAWSAT',
+        compositerole   type agr_name value 'BW4AUTHTCOMPOSITE',
       END OF gc_prefix,
+      gv_auth_block  type zcore_block value 'AUTH',
+      gv_all_postfix type zcore_block value 'ALL',
+      gv_crossclusterdesc type string value 'ALL'.
+
+    CONSTANTS:
+      begin of gc_action,
+        report        type gtyv_action value 'R',
+        cleandroles   type gtyv_action value 'D',
+        Notmaintained type gtyv_action value 'N',
+        all           type gtyv_action value 'A',
+      end of gc_action,
       BEGIN OF gc_roletype,
         access    TYPE zcore_roletype  VALUE 'A',
         architect TYPE zcore_roletype  VALUE 'B',
@@ -82,12 +91,22 @@ CLASS zcl_core_role_admin DEFINITION
 
 
     CLASS-METHODS:
+      class_constructor,
+      "! Very basic method will delete all content of an aDSO
+      "! inteded to be used on the w/o aDSO that is used for output for analysis authorization
+      "! @parameter iv_adsonum | aDSO to be truncated
+      "! @raising cx_rs_error  | generic error from aDSO
       static_delete_data_in_adso
         IMPORTING
           iv_adsonum TYPE rsoadsonm
         RAISING
           cx_rs_error,
-      generate_all,
+      "! Finds all block defined in the ZCORE_ROLEGEN table and makes sure these are generated!
+      "! The assumption is the aDSO follow the naming [cluster]SYSAWSTX and AT for Text and value
+      "! the method will process one cluster at the time
+      generate_all
+        IMPORTING
+          iv_with_adjustment type rs_bool DEFAULT rs_c_false,
       generate
         IMPORTING
           iv_roletype TYPE zcore_roletype
@@ -103,7 +122,7 @@ CLASS zcl_core_role_admin DEFINITION
           iv_cluster  TYPE zcore_cluster,
       verify
         IMPORTING
-          iv_action   type gtyv_action
+          iv_action   type gtyv_action OPTIONAL
         RAISING
           cx_rs_error,
       static_show_log,
@@ -156,16 +175,12 @@ CLASS zcl_core_role_admin DEFINITION
         IMPORTING
           iv_cluster            TYPE zcore_cluster
         RETURNING
-          VALUE(rv_description) TYPE rstxtlg
-        RAISING
-          cx_rs_not_found,
+          VALUE(rv_description) TYPE rstxtlg,
       get_roletype_description
         IMPORTING
           iv_roletype           TYPE zcore_roletype
         RETURNING
-          VALUE(rv_description) TYPE val_text
-        RAISING
-          cx_rs_msg,
+          VALUE(rv_description) TYPE val_text,
       get_template_from_roletype
         IMPORTING
           iv_roletype                TYPE zcore_roletype
@@ -195,17 +210,7 @@ CLASS zcl_core_role_admin DEFINITION
         IMPORTING
                   iv_block           TYPE zcore_block
                   iv_roletype        TYPE zcore_roletype
-        RETURNING VALUE(rv_rolename) TYPE gtyv_rolename
-        RAISING
-                  cx_rs_not_found,
-      get_rolename_all
-        IMPORTING
-                  iv_block           TYPE zcore_block
-                  iv_roletype        TYPE zcore_roletype
-        RETURNING VALUE(rv_rolename) TYPE gtyv_rolename
-        RAISING
-                  cx_rs_not_found
-                  cx_rs_error.
+        RETURNING VALUE(rv_rolename) TYPE gtyv_rolename.
 
   PROTECTED SECTION.
     CLASS-DATA:
@@ -213,11 +218,34 @@ CLASS zcl_core_role_admin DEFINITION
 
   PRIVATE SECTION.
 
+    class-METHODS:
+      verify_count_blocks,
+      verify_check_roles,
+      verify_orphen_roles.
+
 ENDCLASS.
 
 
 
 CLASS zcl_core_role_admin IMPLEMENTATION.
+
+  METHOD class_constructor.
+
+    gc_section-mda         = zcl_core_basis_tools=>get_c( 'MDA_SECTION' ).
+    gc_section-edw         = zcl_core_basis_tools=>get_c( 'EDW_SECTION' ).
+    gc_section-iap         = zcl_core_basis_tools=>get_c( 'IAP_SECTION' ).
+    gc_section-aav         = zcl_core_basis_tools=>get_c( 'AAV_SECTION' ).
+    gc_section-sys         = zcl_core_basis_tools=>get_c( 'SYS_SECTION' ).
+    gc_section-exz         = zcl_core_basis_tools=>get_c( 'EXZ_SECTION' ).
+    gc_prefix-role_prefix  = zcl_core_basis_tools=>get_c( 'PREFIX_ROLE' ).
+    gc_prefix-adso_for_text = zcl_core_basis_tools=>get_c( 'POSTFIX_ADSO_AUTH' ).
+    gc_prefix-adso_for_auth = zcl_core_basis_tools=>get_c( 'POSTFIX_ADSO_TEXT' ).
+    gc_prefix-compositerole = zcl_core_basis_tools=>get_c( 'COMPOSITE_ROLE' ).
+
+    gv_auth_block  = zcl_core_basis_tools=>get_c( 'AUTH_BLOCK' ).
+    gv_all_postfix = zcl_core_basis_tools=>get_c( 'ALL_POSTFIX' ).
+
+  ENDMETHOD.
 
   METHOD static_show_log.
 
@@ -259,6 +287,7 @@ CLASS zcl_core_role_admin IMPLEMENTATION.
       CALL FUNCTION 'BAL_DB_SAVE'
         EXPORTING
           i_t_log_handle   = lt_log_handle
+          i_save_all       = rs_c_true
         EXCEPTIONS
           log_not_found    = 1
           save_not_allowed = 2
@@ -368,10 +397,7 @@ CLASS zcl_core_role_admin IMPLEMENTATION.
       WHERE doccluster = @iv_cluster
       INTO @rv_description.
     IF sy-subrc <> 0.
-      RAISE EXCEPTION TYPE cx_rs_not_found
-        EXPORTING
-          key    = |{ iv_cluster } |
-          object = |ZI_CORE_CLUSTERt|.
+      rv_description = iv_cluster.
     ENDIF.
   ENDMETHOD.
 
@@ -392,7 +418,7 @@ CLASS zcl_core_role_admin IMPLEMENTATION.
 
   METHOD get_abbreviation_from_rolename.
     DATA(lv_prefix_length) = strlen( gc_prefix-role_prefix ) +
-                             strlen( get_virtual_block( iv_blocktype = 'AUTH' ) ) +
+                             strlen( get_virtual_block( iv_blocktype = gc_prefix-global_block ) ) +
                              strlen( gc_roletype-access ).
     rv_abbreviation = iv_rolename+lv_prefix_length(2).
   ENDMETHOD.
@@ -433,32 +459,6 @@ CLASS zcl_core_role_admin IMPLEMENTATION.
     ENDTRY.
   ENDMETHOD.
 
-  METHOD get_rolename_all.
-    " From a block, a type and a scope
-    " find the role name needed
-
-    " BWAUTHC for Content
-    " BWAUTHD for developer
-    " BWAUTHA for access etc...
-
-**    DATA(lv_description) = to_upper( get_cluster_description(  get_cluster_from_block( iv_block ) ) ).
-    IF iv_block <> get_virtual_block( iv_blocktype = 'AUTH' ).
-      RAISE EXCEPTION TYPE cx_rs_not_found.
-    ENDIF.
-
-    CASE iv_roletype.
-      WHEN gc_roletype-data.
-        " This makes not sense as each cluster will have a different infoObject that causes
-        " a cross cluster data role to be useless - The BW4AUTHDAALL role gives access using 0BI_ALL
-        " same as BW4AUTHDTEMPLATE.
-        RAISE EXCEPTION TYPE cx_rs_error.
-      WHEN OTHERS.
-        rv_rolename = |{ gc_prefix-role_prefix }{ iv_block }{ iv_roletype }_ALL|.
-    ENDCASE.
-
-  ENDMETHOD.
-
-
   METHOD get_rolename.
     " From a block, a type and a scope
     " find the role name needed
@@ -472,7 +472,11 @@ CLASS zcl_core_role_admin IMPLEMENTATION.
       WHEN gc_roletype-data.
         rv_rolename = |{ gc_prefix-role_prefix }{ iv_block }{ iv_roletype }|.
       WHEN OTHERS.
-        rv_rolename = |{ gc_prefix-role_prefix }{ iv_block }{ iv_roletype }_{ to_upper( get_cluster_description(  get_cluster_from_block( iv_block ) ) ) }|.
+        if iv_block = zcl_core_role_admin=>get_virtual_block( iv_blocktype = zcl_core_role_admin=>gc_prefix-global_block ).
+          rv_rolename = |{ gc_prefix-role_prefix }{ iv_block }{ iv_roletype }_{ gv_crossclusterdesc }|.
+        else.
+          rv_rolename = |{ gc_prefix-role_prefix }{ iv_block }{ iv_roletype }_{ to_upper( get_cluster_description(  get_cluster_from_block( iv_block ) ) ) }|.
+        endif.
     ENDCASE.
 
   ENDMETHOD.
@@ -487,22 +491,12 @@ CLASS zcl_core_role_admin IMPLEMENTATION.
         text    = rv_description
       EXCEPTIONS
         OTHERS  = 8.
-    IF sy-subrc <> 0.
-      RAISE EXCEPTION TYPE cx_rs_msg
-        EXPORTING
-          msgid = sy-msgid
-          msgty = sy-msgty
-          msgno = sy-msgno
-          msgv1 = sy-msgv1
-          msgv2 = sy-msgv2
-          msgv3 = sy-msgv3
-          msgv4 = sy-msgv4.
-    ENDIF.
+    assert sy-subrc = 0.
   ENDMETHOD.
 
 
   METHOD get_roletype_from_rolename.
-    DATA(lv_prefix_length) = strlen( gc_prefix-role_prefix ) + strlen( get_virtual_block( iv_blocktype = 'AUTH' ) ).
+    DATA(lv_prefix_length) = strlen( gc_prefix-role_prefix ) + strlen( get_virtual_block( iv_blocktype = gc_prefix-global_block ) ).
     rv_roletype = iv_rolename+lv_prefix_length(1).
   ENDMETHOD.
 
@@ -516,7 +510,7 @@ CLASS zcl_core_role_admin IMPLEMENTATION.
 
     IF iv_roletype = ' '.
       " if Roletype is empty use the composite role template
-      rv_roletypetemplate = zcl_core_role=>gv_coll_template.
+      rv_roletypetemplate = zcl_core_role_admin=>gc_prefix-compositerole.
     ELSE.
       rv_roletypetemplate = |{ gc_prefix-role_prefix }AUTH{ iv_roletype }TEMPLATE|.
     ENDIF.
@@ -535,10 +529,10 @@ CLASS zcl_core_role_admin IMPLEMENTATION.
 
     " Keep in mind that block type is not the same as the pre and postfix needed
     CASE iv_blocktype.
-      WHEN 'ALL'.
-        rv_virtual_block = |{ iv_cluster }{ gc_prefix-cluster_fix }|.
-      WHEN 'AUTH'.
-        rv_virtual_block = gc_prefix-global_block.
+      WHEN gc_prefix-cluster_fix.
+        rv_virtual_block = |{ iv_cluster }{ gv_all_postfix }|.
+      WHEN gc_prefix-global_block.
+        rv_virtual_block = gv_auth_block.
       WHEN OTHERS.
         " Programming error in the calling program
         ASSERT 1 = 0.
@@ -574,7 +568,7 @@ CLASS zcl_core_role_admin IMPLEMENTATION.
     IF gv_log_handle IS INITIAL.
       SELECT SINGLE object, subobject
         FROM balsub
-        WHERE object    = 'ZAUTH' AND
+        WHERE object    = 'ZBW' AND
               subobject = 'ZROLEGEN'
         INTO CORRESPONDING FIELDS OF @ls_log.
       " use transaction SLG0 and create the object
@@ -627,7 +621,7 @@ CLASS zcl_core_role_admin IMPLEMENTATION.
               text = iv_message.
         ENDIF.
       ELSE. " Critical message
-        MESSAGE iv_message  TYPE iv_message_type.
+        MESSAGE iv_message  TYPE iv_message_type DISPLAY LIKE rs_c_warning.
       ENDIF.
     ELSE. "" iv_message not supplied
       DATA ls_msg TYPE bal_s_msg.
@@ -655,7 +649,7 @@ CLASS zcl_core_role_admin IMPLEMENTATION.
               text = gv_message.
         ENDIF.
       ELSE.
-        MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
+        MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4 DISPLAY LIKE rs_c_warning.
       ENDIF. " non critical
     ENDIF. "" iv_message not supplied
 
@@ -703,8 +697,6 @@ CLASS zcl_core_role_admin IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD generate_all.
-    " Finds all block defined in the ZCORE_ROLEGEN table and makes sure these are generated!
-
     TYPES:
       BEGIN OF ltys_block,
         doccluster TYPE zcore_cluster,
@@ -732,8 +724,8 @@ CLASS zcl_core_role_admin IMPLEMENTATION.
 
       " That will place GENERATE to the one stop for the creation of roles
       AT NEW doccluster.
-        lv_txt_adso = |{ ls_block-doccluster }SYSAWSTX|.
-        lv_authadso = |{ ls_block-doccluster }SYSAWSAT|.
+        lv_txt_adso = |{ ls_block-doccluster }{ gc_prefix-adso_for_text }|.
+        lv_authadso = |{ ls_block-doccluster }{ gc_prefix-adso_for_auth }|.
       ENDAT.
 
       APPEND VALUE #( sign   = rs_c_range_sign-including
@@ -742,7 +734,6 @@ CLASS zcl_core_role_admin IMPLEMENTATION.
 
       AT END OF doccluster.
         TRY.
-
             CALL METHOD zcl_core_role_admin=>generate
               EXPORTING
                 iv_roletype = ls_block-roletype
@@ -758,12 +749,7 @@ CLASS zcl_core_role_admin IMPLEMENTATION.
     ENDLOOP.
   ENDMETHOD.
 
-  METHOD verify.
-    " A kind of clean up function - Find out if a role exist that should not exist and delete it
-    " Let's say you delete a block in a cluster those
-
-    zcl_core_role_admin=>static_do_message( iv_message = |Complete verification of setup and roles { sy-datum }/{ sy-uzeit }| iv_detlevel = 1 ).
-
+  METHOD verify_count_blocks.
     zcl_core_role_admin=>static_do_message( iv_message = |Counting the number of blocks per cluster| iv_detlevel = 1 ).
     select doccluster,
            count( DISTINCT docblock ) as NumBlock
@@ -773,7 +759,6 @@ CLASS zcl_core_role_admin IMPLEMENTATION.
       into table @data(lt_cluster_count_blocks).
 
     loop at lt_cluster_count_blocks ASSIGNING FIELD-SYMBOL(<ls_cluster_count_block>).
-
       if <ls_cluster_count_block>-numblock <= 1.
         zcl_core_role_admin=>static_do_message( iv_message = |For Cluster { <ls_cluster_count_block>-DocCluster } - | &&
                       |{ zcl_core_role_admin=>get_cluster_description( <ls_cluster_count_block>-DocCluster ) } number of blocks are { <ls_cluster_count_block>-numblock }| iv_message_type = rs_c_warning ).
@@ -783,13 +768,14 @@ CLASS zcl_core_role_admin IMPLEMENTATION.
       endif.
     ENDLOOP.
     zcl_core_role_admin=>static_set_detlevel( -1 ).
+  ENDMETHOD.
 
+  METHOD verify_check_roles.
+    zcl_core_role_admin=>static_do_message( iv_message = |What roles have been created for blocks in a cluster | iv_detlevel = 1 ).
     select *
         from zi_core_blocksinsystem
         order by DocCluster, DocBlock
         into table @data(lt_blocksinsystem).
-
-    zcl_core_role_admin=>static_do_message( iv_message = |What roles have been created for blocks in a cluster | iv_detlevel = 1 ).
 
     loop at lt_blocksinsystem into data(ls_clusterinsystem) GROUP BY ls_clusterinsystem-DocCluster.
       zcl_core_role_admin=>static_do_message( iv_message = |What roles have been created for blocks in cluster { ls_clusterinsystem-DocCluster } | iv_detlevel = 1 ).
@@ -816,23 +802,30 @@ CLASS zcl_core_role_admin IMPLEMENTATION.
               endif.
           endcase.
 
-          if zcl_core_role_admin=>check_role_exists( lv_rolename ) = rs_c_true.
-            zcl_core_role_admin=>static_do_message( iv_message = |Cluster { ls_clusterinsystem-DocCluster } - { zcl_core_role_admin=>get_roletype_description( <lv_roletype> ) } -> Role { lv_rolename }  EXISTS| iv_message_type = lv_msgtype ).
-          else.
-            zcl_core_role_admin=>static_do_message( iv_message = |Cluster { ls_clusterinsystem-DocCluster } - { zcl_core_role_admin=>get_roletype_description( <lv_roletype> ) } -> Role { lv_rolename }  No role| iv_message_type = lv_msgtype ).
-          endif.
+          try.
+              if zcl_core_role_admin=>check_role_exists( lv_rolename ) = rs_c_true.
+                zcl_core_role_admin=>static_do_message( iv_message = |Cluster { ls_clusterinsystem-DocCluster } - { zcl_core_role_admin=>get_roletype_description( <lv_roletype> ) } -> Role { lv_rolename }  EXISTS| iv_message_type = lv_msgtype ).
+              else.
+                zcl_core_role_admin=>static_do_message( iv_message = |Cluster { ls_clusterinsystem-DocCluster } - { zcl_core_role_admin=>get_roletype_description( <lv_roletype> ) } -> Role { lv_rolename }  No role| iv_message_type = lv_msgtype ).
+              endif.
+            catch cx_rs_msg into data(lrx_msg).
+              zcl_core_role_admin=>static_do_message( iv_message = lrx_msg->get_text( ) iv_message_type = lrx_msg->msgty ).
+          endtry.
         ENDLOOP.
         zcl_core_role_admin=>static_set_detlevel( -1 ).
       enddo.
       zcl_core_role_admin=>static_set_detlevel( -1 ).
     ENDLOOP.
     zcl_core_role_admin=>static_set_detlevel( -1 ).
+  ENDMETHOD.
 
+  METHOD verify_orphen_roles.
     zcl_core_role_admin=>static_do_message( iv_message = |Find ourphen Roles| iv_detlevel = 1 ).
 
     data:
       lth_rolegen type HASHED TABLE OF zcore_rolegen with UNIQUE key docblock roletype,
       lth_cluster type HASHED TABLE OF zcore_cluster with UNIQUE key table_line,
+      lth_block_data type HASHED TABLE OF zcore_block with UNIQUE key table_line,
       lth_block   type HASHED TABLE OF zcore_block   with UNIQUE key TABLE_LINE.
 
     select doccluster
@@ -848,35 +841,49 @@ CLASS zcl_core_role_admin IMPLEMENTATION.
 
     select agr_name
        from agr_define
-       where agr_name like 'BW4%'
+       where agr_name like 'BW4%' and
+             agr_name not like 'BW4AUTH%'
+       order by agr_name
        into table @data(lt_rolename).
 
-    zcl_core_role_admin=>static_do_message( iv_message = |Verification of roles| iv_detlevel = 1 ).
+    zcl_core_role_admin=>static_do_message( iv_message = |Verification of roles...| iv_detlevel = 1 ).
 
+    data(lv_rolename) = lt_rolename[ 1 ]-agr_name.
+    data(lv_cluster_text)  = zcl_core_role_admin=>get_cluster_description( zcl_core_role_admin=>get_cluster_from_rolename( lv_rolename ) ).
+    zcl_core_role_admin=>static_do_message( iv_message = |Processing roles from cluster { lv_cluster_text }| iv_detlevel = 1 ).
     loop at lt_rolename into data(ls_rolename).
-      zcl_core_role_admin=>static_do_message( iv_message = |Verification of role { ls_rolename-agr_name }| iv_detlevel = 1 ).
-      data(lv_cluster)  = zcl_core_role_admin=>get_cluster_from_rolename( ls_rolename-agr_name ).
-      data(lv_block)    = zcl_core_role_admin=>get_block_from_rolename( ls_rolename-agr_name ).
-      data(lv_roletype) = zcl_core_role_admin=>get_roletype_from_rolename( ls_rolename-agr_name ).
+
+      if lv_cluster_text <> zcl_core_role_admin=>get_cluster_description( zcl_core_role_admin=>get_cluster_from_rolename( ls_rolename-agr_name ) ).
+        zcl_core_role_admin=>static_set_detlevel( -1 ).
+        lv_cluster_text  = zcl_core_role_admin=>get_cluster_description( zcl_core_role_admin=>get_cluster_from_rolename( lv_rolename ) ).
+        zcl_core_role_admin=>static_do_message( iv_message = |Processing roles from cluster { lv_cluster_text }| iv_detlevel = 1 ).
+      endif.
+      lv_rolename = ls_rolename-agr_name.
+
+
+      zcl_core_role_admin=>static_do_message( iv_message = |Verification of role { lv_rolename }| iv_detlevel = 1 ).
+      data(lv_cluster)  = zcl_core_role_admin=>get_cluster_from_rolename( lv_rolename ).
+      data(lv_block)    = zcl_core_role_admin=>get_block_from_rolename( lv_rolename ).
+      data(lv_roletype) = zcl_core_role_admin=>get_roletype_from_rolename( lv_rolename ).
 
       read table lth_cluster TRANSPORTING NO FIELDS
         with TABLE KEY table_line = lv_cluster.
       if sy-subrc <> 0.
-        zcl_core_role_admin=>static_do_message( iv_message = |Role { ls_rolename-agr_name } - no cluster { lv_cluster }| iv_message_type = rs_c_error ).
+        zcl_core_role_admin=>static_do_message( iv_message = |Role { lv_rolename } - no cluster { lv_cluster }| iv_message_type = rs_c_error ).
       endif.
 
       read table lth_block TRANSPORTING NO FIELDS
         WITh TABLE KEY table_line = lv_block.
       if sy-subrc <> 0.
-        zcl_core_role_admin=>static_do_message( iv_message = |Role { ls_rolename-agr_name } - no Block { lv_block }| iv_message_type = rs_c_error ).
+        zcl_core_role_admin=>static_do_message( iv_message = |Role { lv_rolename } - no Block { lv_block }| iv_message_type = rs_c_error ).
       endif.
 
       if not zcl_core_role_admin=>gc_roletype cs lv_roletype.
-        zcl_core_role_admin=>static_do_message( iv_message = |Role { ls_rolename-agr_name } - unknown role type: { lv_roletype }| iv_message_type = rs_c_error ).
+        zcl_core_role_admin=>static_do_message( iv_message = |Role { lv_rolename } - unknown role type: { lv_roletype }| iv_message_type = rs_c_error ).
       endif.
 
-      if lv_block <> zcl_core_role_admin=>get_virtual_block( iv_blocktype = 'ALL' iv_cluster = lv_cluster ) and
-         lv_block <> zcl_core_role_admin=>get_virtual_block( iv_blocktype = 'AUTH' ).
+      if lv_block <> zcl_core_role_admin=>get_virtual_block( iv_blocktype = gc_prefix-cluster_fix iv_cluster = lv_cluster ) and
+         lv_block <> zcl_core_role_admin=>get_virtual_block( iv_blocktype = gc_prefix-global_block ).
         read table lth_rolegen TRANSPORTING NO FIELDS
           with TABLE KEY docblock = lv_block
                          roletype = lv_roletype.
@@ -886,19 +893,27 @@ CLASS zcl_core_role_admin IMPLEMENTATION.
       endif.
 
       if lv_roletype = zcl_core_role_admin=>gc_roletype-data.
-        "" Before we start we need to know what roles that need to be create
-        zcl_core_role_admin=>static_do_message( iv_message = |Simulation of the Data Role Creation for block { lv_block }| iv_detlevel = 1 ).
-
-        data lt_rng_block type range of zcore_block.
-        refresh lt_rng_block.
-        append value #( sign   = rs_c_range_sign-including
-                        option = rs_c_range_opt-equal
-                        low    = lv_block ) to lt_rng_block.
-        call METHOD zcl_core_data_values=>create_data_role
-          EXPORTING
-            iv_cluster = lv_cluster
-            it_block   = lt_rng_block[].
-        zcl_core_role_admin=>static_set_detlevel( -1 ).
+        read table lth_block_data TRANSPORTING NO FIELDS
+          with TABLE KEY table_line = lv_block.
+        if sy-subrc <> 0.
+          "" Before we start we need to know what roles that need to be create
+          zcl_core_role_admin=>static_do_message( iv_message = |Simulation of the Data Role Creation for block { lv_block }| iv_detlevel = 1 ).
+          data lt_rng_block type range of zcore_block.
+          refresh lt_rng_block.
+          append value #( sign   = rs_c_range_sign-including
+                          option = rs_c_range_opt-equal
+                          low    = lv_block ) to lt_rng_block.
+          try.
+              call METHOD zcl_core_data_values=>create_data_role
+                EXPORTING
+                  iv_cluster = lv_cluster
+                  it_block   = lt_rng_block[].
+            CATCH cx_root into data(lrx_root).
+              zcl_core_role_admin=>static_do_message( iv_message = |Error calling CREATE_DATA_ROLE => { lrx_root->get_text(  ) }| iv_message_type = rs_c_error ).
+          endtry.
+          zcl_core_role_admin=>static_set_detlevel( -1 ).
+          insert lv_block into table lth_block_data.
+        endif.
 
         try.
             call METHOD zcl_core_data_values=>get_authname_from_rolename( lv_rolename ).
@@ -907,16 +922,31 @@ CLASS zcl_core_role_admin IMPLEMENTATION.
         endtry.
 
       endif.
-
       zcl_core_role_admin=>static_set_detlevel( -1 ).
+
     endloop.
+    "" Cluster inforamtion
     zcl_core_role_admin=>static_set_detlevel( -1 ).
+
+    zcl_core_role_admin=>static_set_detlevel( -1 ).
+  ENDMETHOD.
+
+
+  METHOD verify.
+    " A kind of clean up function - Find out if a role exist that should not exist and delete it
+    " Let's say you delete a block in a cluster those
+
+    zcl_core_role_admin=>static_do_message( iv_message = |Complete verification of setup and roles { sy-datum }/{ sy-uzeit }| iv_detlevel = 1 ).
+
+    call METHOD:
+      verify_count_blocks,
+      verify_check_roles,
+      verify_orphen_roles.
 
   ENDMETHOD.
 
   METHOD generate.
     " Finds all block defined in the ZCORE_ROLEGEN table and makes sure these are generated!
-
     " first make sure that the role must be created - if not delete it, if possible
     IF iv_roletype = zcl_core_role_admin=>gc_roletype-data.
       CALL METHOD:

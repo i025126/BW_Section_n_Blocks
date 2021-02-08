@@ -12,8 +12,8 @@ define view ZI_CORE_BlocksInSystem as
   association[0..1] to ZI_CORE_Cluster as _Cluster on _Cluster.DocCluster = $projection.DocCluster
 {
     @ObjectModel.text.association: '_Text'
-    key z.DocBlock,
-        z.DocCluster,
+    key z.DocBlock    as DocBlock,
+        z.DocCluster  as DocCluster,
         _Text,
         _Cluster
 } 

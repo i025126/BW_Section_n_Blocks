@@ -12,19 +12,12 @@ CLASS zcl_core_role DEFINITION
 
   PUBLIC SECTION.
 
-    CONSTANTS:
-      gv_role_prefix TYPE string VALUE 'BW4'.
-
-    CONSTANTS:
-      gv_coll_template TYPE agr_name VALUE 'BW4AUTHTCOLLETIVEROLE'.
-
-    DATA:
-      nv_rolename         TYPE agr_name.
-
     CLASS-DATA:
+      lr_admin TYPE REF TO zcl_core_role_admin,
       _message TYPE string.
 
     CLASS-METHODS:
+      class_constructor,
       create
         IMPORTING
           iv_rolename TYPE agr_name
@@ -55,14 +48,6 @@ CLASS zcl_core_role DEFINITION
         RAISING
           cx_rs_not_found
           cx_rs_error.
-
-    METHODS:
-      constructor
-        IMPORTING
-          iv_rolename TYPE agr_name
-        RAISING
-          cx_rs_not_found
-          cx_rs_msg.
 
   PROTECTED SECTION.
 
@@ -114,6 +99,10 @@ ENDCLASS.
 
 CLASS zcl_core_role IMPLEMENTATION.
 
+  METHOD class_constructor.
+    CREATE OBJECT lr_admin.
+  ENDMETHOD.
+
   METHOD manage_cluster_role.
 
     DATA:
@@ -122,13 +111,14 @@ CLASS zcl_core_role IMPLEMENTATION.
     MESSAGE s102(zcore) WITH iv_cluster.
 
     TRY.
+        DATA(lv_all_block)    = zcl_core_role_admin=>get_virtual_block( iv_cluster = iv_cluster iv_blocktype = zcl_core_role_admin=>gc_prefix-cluster_fix ).
+
         IF iv_roletype = zcl_core_role_admin=>gc_roletype-operation OR iv_roletype = zcl_core_role_admin=>gc_roletype-content.
           " --
           " We only need the architect role for 'C' and 'O'
           " --
           " Make sure to create the architect role
           " Copy the role type 'B'... this will be BW4xALLB
-          DATA(lv_all_block)    = zcl_core_role_admin=>get_virtual_block( iv_cluster = iv_cluster iv_blocktype = 'ALL' ).
           " Role name is now BW4xALLB_.... =
           DATA(lv_roletype) = zcl_core_role_admin=>gc_roletype-architect.
           DATA(lv_role_architect) = zcl_core_role_admin=>get_rolename( iv_block = lv_all_block iv_roletype = lv_roletype ).
@@ -193,8 +183,8 @@ CLASS zcl_core_role IMPLEMENTATION.
       RAISE EXCEPTION TYPE cx_rs_msg.
     ENDIF.
 
-    DATA(lv_auth_rolename) = zcl_core_role_admin=>get_rolename_all( iv_block = zcl_core_role_admin=>get_virtual_block( iv_blocktype = 'AUTH' )
-                                                                                      iv_roletype = lv_roletype ).
+    DATA(lv_auth_rolename) = zcl_core_role_admin=>get_rolename( iv_block = zcl_core_role_admin=>get_virtual_block( iv_blocktype = zcl_core_role_admin=>gc_prefix-global_block )
+                                                                iv_roletype = lv_roletype ).
     IF zcl_core_role_admin=>check_role_exists( lv_auth_rolename ) = rs_c_true.
       " So the BW4AUTH<roletype>_ALL does exist
       REFRESH lt_roles_in_cluster.
@@ -247,115 +237,122 @@ CLASS zcl_core_role IMPLEMENTATION.
     zcl_core_role_admin=>static_do_message( ).
     zcl_core_role_admin=>static_set_detlevel( 1 ).
 
-    CHECK zcl_core_role_admin=>check_role_exists( iv_rolename = iv_rolename ) = rs_c_false.
+    IF zcl_core_role_admin=>check_role_exists( iv_rolename = iv_rolename ) = rs_c_false.
 
-    " Never create AUTH roles
-    IF zcl_core_role_admin=>get_block_from_rolename( iv_rolename ) = zcl_core_role_admin=>get_virtual_block( iv_blocktype = 'AUTH' ) OR
-        zcl_core_role_admin=>get_block_from_rolename( iv_rolename ) = zcl_core_role_admin=>get_virtual_block( iv_blocktype = 'ALL' iv_cluster = zcl_core_role_admin=>get_cluster_from_rolename( iv_rolename )  ).
-      DATA(lv_composite_role) = rs_c_true.
-      DATA(lv_role_template) = gv_coll_template.
-    ELSE.
-      lv_composite_role = rs_c_false.
-      lv_role_template = zcl_core_role_admin=>get_template_from_roletype( zcl_core_role_admin=>get_roletype_from_rolename( iv_rolename ) ).
-    ENDIF.
+      " Never create AUTH roles
+      if  zcl_core_role_admin=>get_block_from_rolename( iv_rolename ) = zcl_core_role_admin=>get_virtual_block( iv_blocktype = zcl_core_role_admin=>gc_prefix-global_block ).
+        return.
+      endif.
+      IF zcl_core_role_admin=>get_block_from_rolename( iv_rolename ) = zcl_core_role_admin=>get_virtual_block( iv_blocktype = zcl_core_role_admin=>gc_prefix-cluster_fix
+                                                                                                               iv_cluster = zcl_core_role_admin=>get_cluster_from_rolename( iv_rolename ) ) AND
+           "" Architect roles as ALWAYS created on cluster level
+           zcl_core_role_admin=>get_roletype_from_rolename( iv_rolename ) <> zcl_core_role_admin=>gc_roletype-architect .
+        DATA(lv_composite_role) = rs_c_true.
+        DATA(lv_role_template) = zcl_core_role_admin=>gc_prefix-compositerole.
+      ELSE.
+        lv_composite_role = rs_c_false.
+        lv_role_template = zcl_core_role_admin=>get_template_from_roletype( zcl_core_role_admin=>get_roletype_from_rolename( iv_rolename ) ).
+      ENDIF.
 
-    DATA(lv_txtlg) = zcl_core_role_admin=>get_role_description( iv_rolename ).
+      DATA(lv_txtlg) = zcl_core_role_admin=>get_role_description( iv_rolename ).
 
-    MESSAGE s109(zcore) WITH iv_rolename.
-    zcl_core_role_admin=>static_do_message(  ).
+      MESSAGE s109(zcore) WITH iv_rolename.
+      zcl_core_role_admin=>static_do_message(  ).
 
-    DATA: lt_messages TYPE sprot_u_tab.
+      DATA: lt_messages TYPE sprot_u_tab.
 * Copy procedure
-    CALL FUNCTION 'PRGN_COPY_ACTIVITY_GROUP'
-      EXPORTING
-        source_activity_group = lv_role_template
-        target_activity_group = iv_rolename
-        display_log           = rs_c_false
-      IMPORTING
-        messages              = lt_messages
-      EXCEPTIONS
-        action_cancelled      = 1
-        not_authorized        = 2
-        target_already_exists = 3
-        source_does_not_exist = 4
-        internal_error        = 5
-        OTHERS                = 6.
-    CASE sy-subrc.
-      WHEN 0.
-        LOOP AT lt_messages ASSIGNING FIELD-SYMBOL(<ls_messages>).
-          MESSAGE ID     <ls_messages>-ag TYPE   'S' NUMBER <ls_messages>-msgnr WITH   <ls_messages>-var1 <ls_messages>-var2 <ls_messages>-var3 <ls_messages>-var4 INTO _message.
-          zcl_core_role_admin=>static_do_message( ).
-        ENDLOOP.
-        MESSAGE s407(s#) INTO _message.
-        zcl_core_role_admin=>static_do_message( ).
-      WHEN OTHERS.
-        IF NOT lt_messages IS INITIAL.
-          LOOP AT lt_messages ASSIGNING <ls_messages>.
+      CALL FUNCTION 'PRGN_COPY_ACTIVITY_GROUP'
+        EXPORTING
+          source_activity_group = lv_role_template
+          target_activity_group = iv_rolename
+          display_log           = rs_c_false
+        IMPORTING
+          messages              = lt_messages
+        EXCEPTIONS
+          action_cancelled      = 1
+          not_authorized        = 2
+          target_already_exists = 3
+          source_does_not_exist = 4
+          internal_error        = 5
+          OTHERS                = 6.
+      CASE sy-subrc.
+        WHEN 0.
+          LOOP AT lt_messages ASSIGNING FIELD-SYMBOL(<ls_messages>).
             MESSAGE ID     <ls_messages>-ag TYPE   'S' NUMBER <ls_messages>-msgnr WITH   <ls_messages>-var1 <ls_messages>-var2 <ls_messages>-var3 <ls_messages>-var4 INTO _message.
             zcl_core_role_admin=>static_do_message( ).
           ENDLOOP.
-        ELSE.
-          MESSAGE ID sy-msgid TYPE 'S' NUMBER sy-msgno DISPLAY LIKE 'E'.
+          MESSAGE s407(s#) INTO _message.
           zcl_core_role_admin=>static_do_message( ).
-        ENDIF.
-        RAISE EXCEPTION TYPE cx_rs_msg.
-    ENDCASE.
-    zcl_core_role_admin=>static_do_message( |Copy done... Create the role { iv_rolename } | ).
+        WHEN OTHERS.
+          IF NOT lt_messages IS INITIAL.
+            LOOP AT lt_messages ASSIGNING <ls_messages>.
+              MESSAGE ID     <ls_messages>-ag TYPE   'S' NUMBER <ls_messages>-msgnr WITH   <ls_messages>-var1 <ls_messages>-var2 <ls_messages>-var3 <ls_messages>-var4 INTO _message.
+              zcl_core_role_admin=>static_do_message( ).
+            ENDLOOP.
+          ELSE.
+            MESSAGE ID sy-msgid TYPE 'S' NUMBER sy-msgno DISPLAY LIKE 'E'.
+            zcl_core_role_admin=>static_do_message( ).
+          ENDIF.
+          RAISE EXCEPTION TYPE cx_rs_msg.
+      ENDCASE.
+      zcl_core_role_admin=>static_do_message( |Copy done... Create the role { iv_rolename } | ).
 
-    TRY.
-        " Try to see if a BADI implementation of the zbapi_data_role_value
-        " can be accompslied, since this is the same context the conversion
-        " from rolename to InfoObject will work... otherwise we just take default
-        DATA:
-          lr_infoobjecct TYPE REF TO zbapi_data_role_value.
-        DATA(lv_infoobject) = zcl_core_data_values=>get_infoobject_from_rolename( iv_rolename = iv_rolename ).
-        GET BADI lr_infoobjecct
-          FILTERS
-            zcore_role_data_filter = lv_infoobject.
-        " Here the badi Implementation, must supply the text
-        DATA(lt_texts) = zcl_core_role_admin=>get_role_description( iv_rolename = iv_rolename ir_authname = lr_infoobjecct ).
+      TRY.
+          " Try to see if a BADI implementation of the zbapi_data_role_value
+          " can be accompslied, since this is the same context the conversion
+          " from rolename to InfoObject will work... otherwise we just take default
+          DATA:
+            lr_infoobjecct TYPE REF TO zbapi_data_role_value.
+          DATA(lv_infoobject) = zcl_core_data_values=>get_infoobject_from_rolename( iv_rolename = iv_rolename ).
+          GET BADI lr_infoobjecct
+            FILTERS
+              zcore_role_data_filter = lv_infoobject.
+          " Here the badi Implementation, must supply the text
+          DATA(lt_texts) = zcl_core_role_admin=>get_role_description( iv_rolename = iv_rolename ir_authname = lr_infoobjecct ).
 
-        IF lt_texts IS INITIAL.
-          " No data returned, let's take standard anyway
-          RAISE EXCEPTION TYPE cx_rs_not_found.
-        ENDIF.
+          IF lt_texts IS INITIAL.
+            " No data returned, let's take standard anyway
+            RAISE EXCEPTION TYPE cx_rs_not_found.
+          ENDIF.
 
-      CATCH cx_rs_not_found
-            cx_badi_not_implemented.
-        " No conversion, no badi, no implementation
-        lt_texts = zcl_core_role_admin=>get_role_description( iv_rolename ).
-    ENDTRY.
+        CATCH cx_rs_not_found
+              cx_badi_not_implemented.
+          " No conversion, no badi, no implementation
+          lt_texts = zcl_core_role_admin=>get_role_description( iv_rolename ).
+      ENDTRY.
 
-    CALL FUNCTION 'PRGN_RFC_CHANGE_TEXTS'
-      EXPORTING
-        activity_group = iv_rolename
-        no_dialog      = rs_c_true
-      TABLES
-        texts          = lt_texts.
-
-    MESSAGE |Assuming that the role { iv_rolename } have been created from template { lv_role_template }...| TYPE 'S'.
-
-    IF lv_composite_role = rs_c_false.
-      " The profile for a composite role cannot be generated
-      CALL FUNCTION 'SUPRN_PROFILE_BATCH'
+      CALL FUNCTION 'PRGN_RFC_CHANGE_TEXTS'
         EXPORTING
-          act_objid        = iv_rolename
-          enqueue          = 'X'
-          no_usr_upd       = 'X'
-        EXCEPTIONS
-          objid_not_found  = 1
-          no_authorization = 2
-          enqueue_failed   = 3
-          not_generated    = 4
-          OTHERS           = 5.
-      IF sy-subrc <> 0.
-        zcl_core_role_admin=>static_do_message(  ).
-      ELSE.
-        zcl_core_role_admin=>static_do_message( |Profile for { iv_rolename }-{ lt_texts[ 1 ]-text } generated| ).
-      ENDIF.
-    ENDIF.
+          activity_group = iv_rolename
+          no_dialog      = rs_c_true
+        TABLES
+          texts          = lt_texts.
 
-    zcl_core_role_admin=>static_do_message( |Role { iv_rolename } is created from { lv_role_template }, named { lt_texts[ 1 ]-text }| ).
+      MESSAGE |Assuming that the role { iv_rolename } have been created from template { lv_role_template }...| TYPE 'S'.
+
+      IF lv_composite_role = rs_c_false.
+        " The profile for a composite role cannot be generated
+        CALL FUNCTION 'SUPRN_PROFILE_BATCH'
+          EXPORTING
+            act_objid        = iv_rolename
+            enqueue          = 'X'
+          EXCEPTIONS
+            objid_not_found  = 1
+            no_authorization = 2
+            enqueue_failed   = 3
+            not_generated    = 4
+            OTHERS           = 5.
+        IF sy-subrc <> 0.
+          zcl_core_role_admin=>static_do_message(  ).
+        ELSE.
+          zcl_core_role_admin=>static_do_message( |Profile for { iv_rolename }-{ lt_texts[ 1 ]-text } generated| ).
+        ENDIF.
+      ENDIF.
+
+      zcl_core_role_admin=>static_do_message( |Role { iv_rolename } is created from { lv_role_template }, named { lt_texts[ 1 ]-text }| ).
+    ELSE.
+      zcl_core_role_admin=>static_do_message( |Role { iv_rolename } already existsw | ).
+    ENDIF.
     zcl_core_role_admin=>static_set_detlevel( -1 ).
 
   ENDMETHOD.
@@ -404,10 +401,6 @@ CLASS zcl_core_role IMPLEMENTATION.
 
   ENDMETHOD.
 
-  METHOD constructor.
-    nv_rolename = iv_rolename.
-  ENDMETHOD.
-
   METHOD adjust_from_template.
 *        IMPORTING
 *          iv_roletype TYPE zcore_roletype
@@ -420,28 +413,33 @@ CLASS zcl_core_role IMPLEMENTATION.
 
     IF iv_cluster IS INITIAL.
       "" First we select all the roles that are to be there
-      SELECT concat( concat( concat( concat( 'BW4', docblock ), @iv_roletype ), '_' ), \_cluster\_text-clustertext ) AS agr_name
+      SELECT concat( concat( concat( concat( '_ZZ_' , docblock ), @iv_roletype ), '_' ), \_cluster\_text-clustertext ) AS agr_name
         FROM zi_core_blocksinsystem
         WHERE \_cluster\_text-language = 'E'
         INTO TABLE @lt_rolenames.
     ELSE.
       "" First we select all the roles that are to be there
-      SELECT concat( concat( concat( concat( 'BW4', docblock ), @iv_roletype ), '_' ), \_cluster\_text-clustertext ) AS agr_name
+      SELECT concat( concat( concat( concat( '_ZZ_', docblock ), @iv_roletype ), '_' ), \_cluster\_text-clustertext ) AS agr_name
         FROM zi_core_blocksinsystem
         WHERE \_cluster\_text-language = 'E' AND
               doccluster = @iv_cluster
         INTO TABLE @lt_rolenames.
     ENDIF.
 
+    "
+    replace all OCCURRENCES OF '_ZZ_' IN TABLE lt_rolenames WITH zcl_core_role_admin=>gc_prefix-role_prefix.
+
     "" then the once that are there
-    SELECT DISTINCT
-        agr_name
-      FROM agr_flags
-      FOR ALL ENTRIES IN @lt_rolenames
-      WHERE agr_name   = @lt_rolenames-table_line AND
-            flag_type  = 'COLL_AGR' AND
-            flag_value = @rs_c_false
-      INTO TABLE @lt_rolenames. "" this is just for testing.
+    IF lt_rolenames IS NOT INITIAL.
+      SELECT DISTINCT
+          agr_name
+        FROM agr_flags
+        FOR ALL ENTRIES IN @lt_rolenames
+        WHERE agr_name   = @lt_rolenames-table_line AND
+              flag_type  = 'COLL_AGR' AND
+              flag_value = @rs_c_false
+        INTO TABLE @lt_rolenames. "" this is just for testing.
+    ENDIF.
 
     zcl_core_role_admin=>static_do_message( iv_message = |Found { lines( lt_rolenames ) } roles of the template { zcl_core_role_admin=>get_template_from_roletype( iv_roletype ) } - Roletype { iv_roletype } | iv_detlevel = 1 ).
 
@@ -507,12 +505,12 @@ CLASS zcl_core_role IMPLEMENTATION.
           RAISE EXCEPTION TYPE cx_spau_object_processing.
         ENDIF.
 
-        IF zcl_core_role_admin=>get_virtual_block( 'AUTH' ) = zcl_core_role_admin=>get_block_from_rolename( iv_rolename ) OR
-              zcl_core_role_admin=>get_virtual_block( 'ALL' ) =  zcl_core_role_admin=>get_block_from_rolename( iv_rolename ).
+        IF ( zcl_core_role_admin=>get_virtual_block( zcl_core_role_admin=>gc_prefix-global_block ) = zcl_core_role_admin=>get_block_from_rolename( iv_rolename ) OR
+             zcl_core_role_admin=>get_virtual_block( iv_blocktype = zcl_core_role_admin=>gc_prefix-cluster_fix
+                                                      iv_cluster = zcl_core_role_admin=>get_cluster_from_rolename( iv_rolename ) ) =  zcl_core_role_admin=>get_block_from_rolename( iv_rolename ) ) and
+             zcl_core_role_admin=>get_roletype_from_rolename( iv_rolename ) <> zcl_core_role_admin=>gc_roletype-architect.
           CALL METHOD _do_adjust_virtual_role( iv_rolename ).
         ELSE.
-
-
 
           DATA(lv_block)   = zcl_core_role_admin=>get_block_from_rolename( iv_rolename ).
           DATA(lv_cluster) = zcl_core_role_admin=>get_cluster_from_rolename( iv_rolename ).
@@ -593,9 +591,9 @@ CLASS zcl_core_role IMPLEMENTATION.
         zcl_core_role_admin=>static_do_message( ).
 
 
-      CATCH cx_rs_msg.
-        zcl_core_role_admin=>static_do_message( |Error occoured during update of profile of role { iv_rolename }... see next message| ).
-        zcl_core_role_admin=>static_do_message( ).
+      CATCH cx_rs_msg into data(lrx_msg).
+        zcl_core_role_admin=>static_do_message(   ).
+        zcl_core_role_admin=>static_do_message( |Error occoured during update of profile of role { iv_rolename }... see previous message| ).
       CATCH cx_spau_object_processing.
         " Some of the checks was executed and the profile was not to be corrected
       CATCH cx_rs_not_found.
@@ -607,23 +605,31 @@ CLASS zcl_core_role IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD _do_generate_profile.
-    CALL FUNCTION 'SUPRN_PROFILE_BATCH'
-      EXPORTING
-        act_objid        = iv_rolename
-        enqueue          = 'X'
-        no_usr_upd       = 'X'
-      EXCEPTIONS
-        objid_not_found  = 1
-        no_authorization = 2
-        enqueue_failed   = 3
-        not_generated    = 4
-        OTHERS           = 5.
-    IF sy-subrc <> 0.
-      zcl_core_role_admin=>static_do_message( ).
-      zcl_core_role_admin=>static_do_message( |Could not generate the profile for role { iv_rolename }| ).
-      RAISE EXCEPTION TYPE cx_rs_msg.
+    SELECT SINGLE flag_value
+        FROM agr_flags
+        WHERE agr_name  = @iv_rolename AND
+              flag_type = 'COLL_AGR'
+        INTO @DATA(lv_is_coll_role).
+    IF sy-subrc <> 0 OR lv_is_coll_role = rs_c_true.
+      " Composite role
     ELSE.
-      zcl_core_role_admin=>static_do_message( |Profile successfully generate for role { iv_rolename }| ).
+      CALL FUNCTION 'SUPRN_PROFILE_BATCH'
+        EXPORTING
+          act_objid        = iv_rolename
+          enqueue          = 'X'
+        EXCEPTIONS
+          objid_not_found  = 1
+          no_authorization = 2
+          enqueue_failed   = 3
+          not_generated    = 4
+          OTHERS           = 5.
+      IF sy-subrc <> 0.
+        zcl_core_role_admin=>static_do_message( ).
+        zcl_core_role_admin=>static_do_message( |Could not generate the profile for role { iv_rolename }| ).
+        RAISE EXCEPTION TYPE cx_rs_msg.
+      ELSE.
+        zcl_core_role_admin=>static_do_message( |Profile successfully generate for role { iv_rolename }| ).
+      ENDIF.
     ENDIF.
   ENDMETHOD.
 
@@ -886,9 +892,9 @@ CLASS zcl_core_role IMPLEMENTATION.
       ASSIGN COMPONENT 'AGR_NAME' OF STRUCTURE <ls_data> TO <lv_agr_name>.
       IF sy-subrc = 0.
         <lv_agr_name> = iv_rolename.
-      else.
+      ELSE.
         " If we fail once in table loop, we continue to fail
-        exit.
+        EXIT.
       ENDIF.
     ENDLOOP.
 

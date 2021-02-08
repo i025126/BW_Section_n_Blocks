@@ -15,15 +15,15 @@
 -- so we expect this, the continueation is in the ZP_CORE_BlocksInSystemT
 define view ZP_CORE_BLOCKSINSYSTEM as 
     select distinct from 
-      ZI_CORE_ContentView as a  
+      ZI_CORE_ContentView as a inner join zcore_setup as zs on zs.customizid = 'BW'
 {
     key a.DocBlock,
         a.DocCluster,
-        concat( a.DocBlock, '_MDA' ) as mda,
-        concat( a.DocBlock, '_EDW' ) as edw,
-        concat( a.DocBlock, '_IAP' ) as iap,
-        concat( a.DocBlock, '_EXZ' ) as exz,
-        concat( a.DocBlock, '_AAV' ) as aav,
-        concat( a.DocBlock, '_SYS' ) as sys, 
+        concat( concat( a.DocBlock, '_' ) , zs.mda_section ) as mda,
+        concat( concat( a.DocBlock, '_' ) , zs.edw_section ) as edw,
+        concat( concat( a.DocBlock, '_' ) , zs.iap_section ) as iap,
+        concat( concat( a.DocBlock, '_' ) , zs.edw_section ) as exz,
+        concat( concat( a.DocBlock, '_' ) , zs.aav_section ) as aav,
+        concat( concat( a.DocBlock, '_' ) , zs.sys_section ) as sys, 
         DocBlock                     as cor        
 } 

@@ -101,21 +101,27 @@ START-OF-SELECTION.
       if <lv_roletype> in pt_2rty.
         " And find all the selected cluster... I could do this into an internal table, out
         " there is only very few
-        select doccluster from zi_core_cluster where doccluster in @pt_2cls into @lv_cluster.
+        select doccluster
+            from zi_core_cluster
+            where doccluster in @pt_2cls
+            into table @data(lt_cluster).
+        loop at lt_cluster into data(ls_cluster).
           CALL METHOD zcl_core_role_admin=>adapt
             EXPORTING
               iv_roletype = <lv_roletype>
-              iv_cluster  = lv_cluster.
-        ENDSELECT.
+              iv_cluster  = ls_cluster-DocCluster.
+        ENDLOOP..
       endif.
     enddo.
     call METHOD zcl_core_role_admin=>static_show_log.
   ENDIF.
 
   if p_veri = rs_c_true.
-    call METHOD:
-       zcl_core_role_admin=>verify,
-       zcl_core_role_admin=>static_show_log.
+    try.
+        call METHOD zcl_core_role_admin=>verify.
+      catch cx_root.
+    endtry.
+    call METHOD zcl_core_role_admin=>static_show_log.
 
   endif.
 

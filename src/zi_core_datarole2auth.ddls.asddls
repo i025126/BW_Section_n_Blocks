@@ -4,10 +4,10 @@
 @AccessControl.authorizationCheck: #CHECK
 @EndUserText.label: 'Shows that value of AUTH for the data roles'
 define view ZI_CORE_DataRole2Auth as select from
-          agr_define as role left outer join
+        ( agr_define as role left outer join
           agr_1250   as prof on prof.agr_name = role.agr_name left outer join
           agr_1251   as auth on auth.agr_name = prof.agr_name and
-                                auth.auth     = prof.auth
+                                auth.auth     = prof.auth ) inner join zcore_setup as zs on zs.customizid = 'BW'
 {
    role.agr_name,
    substring(role.agr_name, 4, 1) as DocCluster,
@@ -20,5 +20,5 @@ define view ZI_CORE_DataRole2Auth as select from
 where 
   prof.object   = 'S_RS_AUTH' and 
   auth.field    = 'BIAUTH' and
-  role.agr_name between 'BW4' and 'BW4ZZZZZZZZZZZZZZZZZZZZZZZZZZZ';
+  role.agr_name between zs.prefix_role and concat( zs.prefix_role , 'ZZZZZZZZZZZZZZZZZZZZZZZZZZZ');
       

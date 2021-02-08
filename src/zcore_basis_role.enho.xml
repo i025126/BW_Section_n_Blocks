@@ -22,7 +22,34 @@
       <item>  call function &apos;BP_EVENT_RAISE&apos;</item>
       <item>    EXPORTING</item>
       <item>      eventid      = &apos;ZROLE_EVENT&apos;</item>
-      <item>      eventparm    = l_s_areat-infoarea</item>
+      <item>      eventparm    = |CREATE { l_s_areat-infoarea }|</item>
+      <item>    EXCEPTIONS</item>
+      <item>      bad_eventid            = 1</item>
+      <item>      eventid_does_not_exist = 2</item>
+      <item>      eventid_missing        = 3</item>
+      <item>      raise_failed           = 4.</item>
+      <item>  if sy-subrc &lt;&gt; 0.</item>
+      <item>     data: lv_text type char72.</item>
+      <item>     lv_text = |Error: &amp;ZROLE_EVENT &amp;{ l_s_areat-infoarea } &amp;{ SY-SUBRC }|.</item>
+      <item>     CALL &apos;C_WRITE_SYSLOG_ENTRY&apos;</item>
+      <item>        ID &apos;TYP&apos;   FIELD &apos;T&apos;</item>
+      <item>        ID &apos;KEY&apos;   FIELD &apos;EHQ&apos; &quot;Failed to trigger event &amp;A: &amp;B/&amp;C:</item>
+      <item>        ID &apos;DATA&apos;  FIELD lv_text</item>
+      <item>        ID &apos;SUBRC&apos; FIELD SY-SUBRC.</item>
+      <item>  endif.</item>
+      <item/>
+     </SOURCE>
+    </ENH_HOOK_IMPL>
+    <ENH_HOOK_IMPL>
+     <PROGRAMNAME>CL_NEW_AWB_AREA===============CP</PROGRAMNAME>
+     <ENHMODE>D</ENHMODE>
+     <FULL_NAME>\TY:CL_NEW_AWB_AREA\IN:IF_RSAWBN_FOLDER_TREE\ME:DELETE_NODE\SE:END\EI</FULL_NAME>
+     <SOURCE>
+      <item>*</item>
+      <item>    call function &apos;BP_EVENT_RAISE&apos;</item>
+      <item>    EXPORTING</item>
+      <item>      eventid      = &apos;ZROLE_EVENT&apos;</item>
+      <item>      eventparm    = |DELETE { i_nodename }|</item>
       <item>    EXCEPTIONS</item>
       <item>      bad_eventid            = 1</item>
       <item>      eventid_does_not_exist = 2</item>
