@@ -185,10 +185,7 @@ CLASS zcl_core_role_admin DEFINITION
         IMPORTING
           iv_roletype                TYPE zcore_roletype
         RETURNING
-          VALUE(rv_roletypetemplate) TYPE gtyv_roletemplate
-        RAISING
-          cx_rs_not_found
-          cx_rs_msg,
+          VALUE(rv_roletypetemplate) TYPE gtyv_roletemplate,
       get_virtual_block
         IMPORTING
           iv_blocktype            TYPE clike
@@ -198,9 +195,7 @@ CLASS zcl_core_role_admin DEFINITION
       check_role_exists
         IMPORTING
                   iv_rolename      TYPE agr_name
-        RETURNING VALUE(rv_exists) TYPE rs_bool
-        RAISING
-                  cx_rs_msg,
+        RETURNING VALUE(rv_exists) TYPE rs_bool,
       get_role_description
         IMPORTING
                   iv_rolename     TYPE agr_name
@@ -322,17 +317,9 @@ CLASS zcl_core_role_admin IMPLEMENTATION.
       WHEN 4.
         rv_exists = rs_c_false.
       WHEN 8.
-        IF sy-subrc <> 0.
-          RAISE EXCEPTION TYPE cx_rs_msg
-            EXPORTING
-              msgid = sy-msgid
-              msgty = sy-msgty
-              msgno = sy-msgno
-              msgv1 = sy-msgv1
-              msgv2 = sy-msgv2
-              msgv3 = sy-msgv3
-              msgv4 = sy-msgv4.
-        ENDIF.
+        message id sy-msgid type sy-msgty number sy-msgno
+            with sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
+        rv_exists = rs_c_false.
     ENDCASE.
 
   ENDMETHOD.
@@ -515,12 +502,8 @@ CLASS zcl_core_role_admin IMPLEMENTATION.
       rv_roletypetemplate = |{ gc_prefix-role_prefix }AUTH{ iv_roletype }TEMPLATE|.
     ENDIF.
 
-    IF check_role_exists( rv_roletypetemplate ) <> rs_c_true.
-      RAISE EXCEPTION TYPE cx_rs_not_found
-        EXPORTING
-          key    = |{ rv_roletypetemplate }|
-          object = |Role template missing|.
-    ENDIF.
+    " The template must exists
+    assert check_role_exists( rv_roletypetemplate ) = rs_c_true.
 
   ENDMETHOD.
 
@@ -635,6 +618,7 @@ CLASS zcl_core_role_admin IMPLEMENTATION.
           e_s_msg_handle = rs_msglog
         EXCEPTIONS
           OTHERS         = 0.
+
       IF sy-subrc <> 0.
         MESSAGE ID sy-msgid TYPE rs_c_warning NUMBER sy-msgno WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
       ENDIF.

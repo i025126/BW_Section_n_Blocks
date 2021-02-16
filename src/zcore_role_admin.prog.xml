@@ -48,6 +48,18 @@
     </item>
     <item>
      <ID>S</ID>
+     <KEY>PT_2CLS</KEY>
+     <ENTRY>Cluster</ENTRY>
+     <LENGTH>15</LENGTH>
+    </item>
+    <item>
+     <ID>S</ID>
+     <KEY>PT_2RTY</KEY>
+     <ENTRY>Role types</ENTRY>
+     <LENGTH>18</LENGTH>
+    </item>
+    <item>
+     <ID>S</ID>
      <KEY>PV_1CLS</KEY>
      <ENTRY>Generate for Cluster</ENTRY>
      <LENGTH>28</LENGTH>
@@ -57,18 +69,6 @@
      <KEY>PV_1RTY</KEY>
      <ENTRY>Genrate Role type</ENTRY>
      <LENGTH>25</LENGTH>
-    </item>
-    <item>
-     <ID>S</ID>
-     <KEY>PV_2CLS</KEY>
-     <ENTRY>Adapt only for one cluster</ENTRY>
-     <LENGTH>34</LENGTH>
-    </item>
-    <item>
-     <ID>S</ID>
-     <KEY>PV_2RTY</KEY>
-     <ENTRY>Adapt for the roletype</ENTRY>
-     <LENGTH>30</LENGTH>
     </item>
     <item>
      <ID>S</ID>
@@ -102,15 +102,15 @@
     </item>
     <item>
      <ID>S</ID>
-     <KEY>P_GETAB</KEY>
-     <ENTRY>Generate roles from ZCORE_ROLE</ENTRY>
-     <LENGTH>38</LENGTH>
-    </item>
-    <item>
-     <ID>S</ID>
      <KEY>P_TRIG</KEY>
      <ENTRY>Trigger ZCORE_ROLE_ACTION</ENTRY>
      <LENGTH>33</LENGTH>
+    </item>
+    <item>
+     <ID>S</ID>
+     <KEY>P_VERI</KEY>
+     <ENTRY>Verification of generated role</ENTRY>
+     <LENGTH>38</LENGTH>
     </item>
    </TPOOL>
   </asx:values>
