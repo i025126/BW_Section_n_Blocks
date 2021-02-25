@@ -21,6 +21,7 @@ CLASS zcl_core_role_admin DEFINITION
 
     TYPES:
       gtyv_action       type char1,
+      gtyv_rolekind     type char1,
       gtyv_rolename     TYPE agr_name,
       gtyv_roletemplate TYPE gtyv_rolename,
       BEGIN OF gtys_role_processing,
@@ -37,6 +38,12 @@ CLASS zcl_core_role_admin DEFINITION
       gtyt_rng_block    TYPE RANGE OF zcore_block.
 
     class-data:
+      begin of gc_rolekind,
+        generic type gtyv_rolekind value ' ',
+        bw4     type gtyv_rolekind value 'B',
+        hana    type gtyv_rolekind value 'H',
+        unknown type gtyv_rolekind value 'Z',
+      end of gc_rolekind,
       BEGIN OF gc_section,
         sys TYPE zcore_section VALUE 'SYS',
         exz TYPE zcore_section VALUE 'EXZ',
@@ -137,6 +144,22 @@ CLASS zcl_core_role_admin DEFINITION
         PREFERRED PARAMETER iv_message
         RETURNING
           VALUE(rs_msglog) TYPE balmsghndl,
+      is_framework_role
+        IMPORTING
+          iv_rolename     type clike
+          iv_rolekind     type gtyv_rolekind DEFAULT gc_rolekind-generic
+        RETURNING
+          VALUE(rv_rolekind) type gtyv_rolekind,
+      get_bwrole_from_hana_role
+        IMPORTING
+          iv_rolename     type clike
+        RETURNING
+          VALUE(rv_rolename) type agr_name,
+      get_hana_auth_from_rolename
+        IMPORTING
+          iv_rolename     TYPE agr_name
+        RETURNING
+          VALUE(rv_package) type string,
       get_block_from_rolename
         IMPORTING
           iv_rolename     TYPE gtyv_rolename
@@ -223,6 +246,7 @@ ENDCLASS.
 
 
 CLASS zcl_core_role_admin IMPLEMENTATION.
+
 
   METHOD class_constructor.
 
@@ -321,6 +345,68 @@ CLASS zcl_core_role_admin IMPLEMENTATION.
             with sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
         rv_exists = rs_c_false.
     ENDCASE.
+
+  ENDMETHOD.
+
+  METHOD get_hana_auth_from_rolename.
+    " standard is the the repository package AUTH is given a sub package ROOTx ROOT is defined and 'x' is the cluster
+    " so the package is given as AUTH.ROOTA
+    data lv_rolename type agr_name.
+    lv_rolename = iv_rolename.
+    rv_package = |{ zcl_core_basis_tools=>get_c( zcl_core_basis_tools=>gc_parameters-auth_block ) }.| &&
+                 |{ zcl_core_basis_tools=>get_c( zcl_core_basis_tools=>gc_parameters-prefix_cluster ) }{ get_cluster_from_rolename( lv_rolename ) }|.
+  ENDMETHOD.
+
+  METHOD get_bwrole_from_hana_role.
+    data lv_char72 type char72.
+
+    clear rv_rolename.
+
+    lv_char72 = iv_rolename.
+    data lv_block type zcore_block.
+    " We know that this must be a block
+    lv_block = zcl_core_basis_tools=>get_c( zcl_core_basis_tools=>gc_parameters-auth_block ).
+    " We can get a rolename
+    data(lv_rolename)   = get_rolename( iv_block = lv_block iv_roletype = gc_roletype-content ).
+    " we can generate a hana prefix
+    data(lv_hanaprefix) = get_hana_auth_from_rolename( lv_rolename ).
+    " We can get the length of the prefix, minus the length of the cluster in the end
+    data(lv_authlength) = strlen( lv_hanaprefix ) - strlen( gc_prefix-garbage_cluster ) - 1.
+
+    if lv_hanaprefix(lv_authlength) = iv_rolename(lv_authlength).
+      " At least the first part of the prefix matchs
+      lv_authlength = lv_authlength + 3.
+      SHIFT lv_char72 left by lv_authlength PLACES.
+      if is_framework_role( iv_rolename = lv_char72 iv_rolekind = gc_rolekind-bw4 ).
+        " If the check if the remainder of the role is an actual framework role, if it is the translation if cool
+        rv_rolename = lv_char72.
+      endif.
+    endif.
+
+  ENDMETHOD.
+
+  METHOD is_framework_role.
+
+    rv_rolekind = gc_rolekind-unknown.
+    " This will make a check on the role
+    if iv_rolekind = gc_rolekind-generic or iv_rolekind = gc_rolekind-bw4.
+      data(lv_prefix_role) = strlen( zcl_core_basis_tools=>get_c( zcl_core_basis_tools=>gc_parameters-prefix_role ) ).
+      if zcl_core_basis_tools=>get_c( zcl_core_basis_tools=>gc_parameters-prefix_role ) = iv_rolename(lv_prefix_role).
+        " Could be a BW role
+        data lv_rolename type agr_name.
+        lv_rolename = iv_rolename.
+        if get_cluster_description(  get_cluster_from_rolename( lv_rolename ) ) <> get_cluster_from_rolename( lv_rolename ).
+          " The get_cluster description will if all is valid return a description and not only the cluster
+          rv_rolekind = gc_rolekind-bw4.
+        endif.
+      endif.
+    endif.
+
+    if iv_rolekind = gc_rolekind-generic or iv_rolekind = gc_rolekind-hana.
+      if is_framework_role( iv_rolename = get_bwrole_from_hana_role( iv_rolename ) iv_rolekind = gc_rolekind-bw4 ) = gc_rolekind-bw4.
+        rv_rolekind = gc_rolekind-hana.
+      endif.
+    endif.
 
   ENDMETHOD.
 

@@ -1,0 +1,39 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<abapGit version="v1.0.0" serializer="LCL_OBJECT_FUGR" serializer_version="v1.0.0">
+ <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+  <asx:values>
+   <AREAT>Move role assignment to HANA</AREAT>
+   <INCLUDES>
+    <SOBJ_NAME>LZCORE_ROLE2HANATOP</SOBJ_NAME>
+    <SOBJ_NAME>SAPLZCORE_ROLE2HANA</SOBJ_NAME>
+   </INCLUDES>
+   <FUNCTIONS>
+    <item>
+     <FUNCNAME>ZCORE_ROLE2HANA_UPDATE</FUNCNAME>
+     <UPDATE_TASK>1</UPDATE_TASK>
+     <SHORT_TEXT>Write role assignmets to HANA</SHORT_TEXT>
+     <IMPORT>
+      <RSIMP>
+       <PARAMETER>IT_ROLE_NAMES</PARAMETER>
+       <TYP>IF_DBMS_USER=&gt;TY_T_DB_ROLE_INFO</TYP>
+      </RSIMP>
+      <RSIMP>
+       <PARAMETER>IS_DB_USER_DATA</PARAMETER>
+       <TYP>IF_DBMS_USER=&gt;TY_S_DB_USER_DATA_ALTER</TYP>
+      </RSIMP>
+     </IMPORT>
+     <DOCUMENTATION>
+      <RSFDO>
+       <PARAMETER>IT_ROLE_NAMES</PARAMETER>
+       <KIND>P</KIND>
+      </RSFDO>
+      <RSFDO>
+       <PARAMETER>IS_DB_USER_DATA</PARAMETER>
+       <KIND>P</KIND>
+      </RSFDO>
+     </DOCUMENTATION>
+    </item>
+   </FUNCTIONS>
+  </asx:values>
+ </asx:abap>
+</abapGit>
