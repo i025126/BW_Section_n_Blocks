@@ -30,13 +30,13 @@ SELECTION-SCREEN END OF BLOCK gn1.
 PARAMETERS:
   p_adapt TYPE rs_bool RADIOBUTTON GROUP gr1.
 SELECTION-SCREEN BEGIN OF BLOCK ad1 WITH FRAME TITLE TEXT-ad1.
-select-OPTIONS:
-  pt_2rty for lv_rtype   no intervals,
-  pt_2cls for lv_cluster no INTERVALS.
+SELECT-OPTIONS:
+  pt_2rty FOR lv_rtype   NO INTERVALS,
+  pt_2cls FOR lv_cluster NO INTERVALS.
 SELECTION-SCREEN END OF BLOCK ad1.
 
 PARAMETERS:
-  p_veri type rs_bool RADIOBUTTON GROUP gr1.
+  p_veri TYPE rs_bool RADIOBUTTON GROUP gr1.
 
 "" Trigger the ZCORE_ROLE_ACTION
 PARAMETERS:
@@ -73,57 +73,55 @@ AT SELECTION-SCREEN ON pv_3blk.
 START-OF-SELECTION.
 
   IF p_genr = rs_c_true.
-    IF pv_1rty = zcl_core_role_admin=>gc_roletype-data.
-      TRY.
-          CALL METHOD zcl_core_role_admin=>generate
-            EXPORTING
-              iv_roletype = pv_1rty
-              iv_cluster  = pv_1cls
-              it_block    = pt_1blk[]
-              iv_txt_adso = pv_txt
-              iv_authadso = pv_val.
-        CATCH cx_rs_error INTO data(lrx_error).
-          MESSAGE lrx_error->get_text(  ) TYPE 'W'.
-      ENDTRY.
-    ENDIF.
+    TRY.
+        CALL METHOD zcl_core_role_admin=>generate
+          EXPORTING
+            iv_roletype = pv_1rty
+            iv_cluster  = pv_1cls
+            it_block    = pt_1blk[]
+            iv_txt_adso = pv_txt
+            iv_authadso = pv_val.
+      CATCH cx_rs_error INTO DATA(lrx_error).
+        MESSAGE lrx_error->get_text(  ) TYPE 'W'.
+    ENDTRY.
 
-    call METHOD zcl_core_role_admin=>static_show_log.
+    CALL METHOD zcl_core_role_admin=>static_show_log.
 
   ENDIF.
 
   IF p_adapt = rs_c_true.
-    do.
+    DO.
       "" Find all defined roletypes - I've not made a DDL for this, se take it from the once we are processing
-      ASSIGN COMPONENT sy-index of STRUCTURE zcl_core_role_admin=>gc_roletype to FIELD-SYMBOL(<lv_roletype>).
-      if sy-subrc <> 0.
-        exit.
-      endif.
-      if <lv_roletype> in pt_2rty.
+      ASSIGN COMPONENT sy-index OF STRUCTURE zcl_core_role_admin=>gc_roletype TO FIELD-SYMBOL(<lv_roletype>).
+      IF sy-subrc <> 0.
+        EXIT.
+      ENDIF.
+      IF <lv_roletype> IN pt_2rty.
         " And find all the selected cluster... I could do this into an internal table, out
         " there is only very few
-        select doccluster
-            from zi_core_cluster
-            where doccluster in @pt_2cls
-            into table @data(lt_cluster).
-        loop at lt_cluster into data(ls_cluster).
+        SELECT doccluster
+            FROM zi_core_cluster
+            WHERE doccluster IN @pt_2cls
+            INTO TABLE @DATA(lt_cluster).
+        LOOP AT lt_cluster INTO DATA(ls_cluster).
           CALL METHOD zcl_core_role_admin=>adapt
             EXPORTING
               iv_roletype = <lv_roletype>
-              iv_cluster  = ls_cluster-DocCluster.
+              iv_cluster  = ls_cluster-doccluster.
         ENDLOOP..
-      endif.
-    enddo.
-    call METHOD zcl_core_role_admin=>static_show_log.
+      ENDIF.
+    ENDDO.
+    CALL METHOD zcl_core_role_admin=>static_show_log.
   ENDIF.
 
-  if p_veri = rs_c_true.
-    try.
-        call METHOD zcl_core_role_admin=>verify.
-      catch cx_root.
-    endtry.
-    call METHOD zcl_core_role_admin=>static_show_log.
+  IF p_veri = rs_c_true.
+    TRY.
+        CALL METHOD zcl_core_role_admin=>verify.
+      CATCH cx_root.
+    ENDTRY.
+    CALL METHOD zcl_core_role_admin=>static_show_log.
 
-  endif.
+  ENDIF.
 
   IF p_trig = rs_c_true.
     IF pv_3blk IS NOT INITIAL.
