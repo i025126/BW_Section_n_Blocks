@@ -63,37 +63,38 @@ CLASS zcl_core_role2hana IMPLEMENTATION.
         WHEN OTHERS.
       ENDCASE.
 
-      IF lv_do_update = rs_c_true AND
-              it_badi_identity_roles[ bname = <ls_identity_update>-bname ]-before_image <> it_badi_identity_roles[ bname = <ls_identity_update>-bname ]-actual.
-        " So there is an update
-        CALL METHOD lr_identity->get_user
-          EXPORTING
-            iv_user_name  = ls_db_user_data-user_name
-          IMPORTING
-            et_role_names = DATA(lt_role_names).
+      TRY.
+          IF lv_do_update = rs_c_true AND
+                  it_badi_identity_roles[ bname = <ls_identity_update>-bname ]-before_image <> it_badi_identity_roles[ bname = <ls_identity_update>-bname ]-actual.
+            " So there is an update
+            CALL METHOD lr_identity->get_user
+              EXPORTING
+                iv_user_name  = ls_db_user_data-user_name
+              IMPORTING
+                et_role_names = DATA(lt_role_names).
 
-        LOOP AT lt_role_names ASSIGNING FIELD-SYMBOL(<ls_hana_roles>).
-          DATA lv_rolename TYPE agr_name.
-          lv_rolename = <ls_hana_roles>-role_name.
-          IF zcl_core_role_admin=>is_framework_role( lv_rolename ) = zcl_core_role_admin=>gc_rolekind-hana.
-            " Delete all entries with a role that is part of the framework, but retain the rest
-            " The idea is to retain all roles that is not generated from the framework. All roles from the
-            " framework is coming from "AUTH.ROOTx"
-            DELETE lt_role_names.
-          ENDIF.
-        ENDLOOP.
-        LOOP AT it_badi_identity_roles[ bname = <ls_identity_update>-bname ]-actual ASSIGNING FIELD-SYMBOL(<ls_roles>)
-            " Add all the roles that that is content roles
-                  WHERE from_dat <= sy-datum AND to_dat >= sy-datum.
-          " For the moment we only push develer roles to HANA
-          check zcl_core_role_admin=>get_roletype_from_rolename( <ls_roles>-agr_name ) = zcl_core_role_admin=>gc_roletype-content.
-          " Make sure only to try and move BW roles
-          check zcl_core_role_admin=>is_framework_role( <ls_roles>-agr_name ) = zcl_core_role_admin=>gc_rolekind-bw4.
-          " Make sure the role exists
-          check zcl_core_basis_tools=>hana_role_read( EXPORTING iv_rolename = <ls_roles>-agr_name ) is not INITIAL.
+            LOOP AT lt_role_names ASSIGNING FIELD-SYMBOL(<ls_hana_roles>).
+              DATA lv_rolename TYPE agr_name.
+              lv_rolename = <ls_hana_roles>-role_name.
+              IF zcl_core_role_admin=>is_framework_role( lv_rolename ) = zcl_core_role_admin=>gc_rolekind-hana.
+                " Delete all entries with a role that is part of the framework, but retain the rest
+                " The idea is to retain all roles that is not generated from the framework. All roles from the
+                " framework is coming from "AUTH.ROOTx"
+                DELETE lt_role_names.
+              ENDIF.
+            ENDLOOP.
+            LOOP AT it_badi_identity_roles[ bname = <ls_identity_update>-bname ]-actual ASSIGNING FIELD-SYMBOL(<ls_roles>)
+                " Add all the roles that that is content roles
+                      WHERE from_dat <= sy-datum AND to_dat >= sy-datum.
+              " For the moment we only push develer roles to HANA
+              CHECK zcl_core_role_admin=>get_roletype_from_rolename( <ls_roles>-agr_name ) = zcl_core_role_admin=>gc_roletype-content.
+              " Make sure only to try and move BW roles
+              CHECK zcl_core_role_admin=>is_framework_role( <ls_roles>-agr_name ) = zcl_core_role_admin=>gc_rolekind-bw4.
+              " Make sure the role exists
+              CHECK zcl_core_basis_tools=>hana_role_read( EXPORTING iv_rolename = <ls_roles>-agr_name ) IS NOT INITIAL.
 
-          APPEND VALUE #( role_name = |{ zcl_core_role_admin=>get_hana_auth_from_rolename( <ls_roles>-agr_name ) }::{ <ls_roles>-agr_name }| ) TO lt_role_names.
-        ENDLOOP.
+              APPEND VALUE #( role_name = |{ zcl_core_role_admin=>get_hana_auth_from_rolename( <ls_roles>-agr_name ) }::{ <ls_roles>-agr_name }| ) TO lt_role_names.
+            ENDLOOP.
 
 *        IF iv_update_task = rs_c_true.
 *          " Since we techincally are doing some updates, if found it best
@@ -103,27 +104,31 @@ CLASS zcl_core_role2hana IMPLEMENTATION.
 *              is_db_user_data = ls_db_user_data
 *              it_role_names   = lt_role_names.
 *        else.
-          " But this is where i put my money
-          CALL METHOD lr_identity->alter_user
-            EXPORTING
-              is_db_user_data = ls_db_user_data
-              it_role_names   = lt_role_names
-            IMPORTING
-              ev_failed       = DATA(lv_failed)
-              et_messages     = DATA(lt_messages).
+            " But this is where i put my money
+            CALL METHOD lr_identity->alter_user
+              EXPORTING
+                is_db_user_data = ls_db_user_data
+                it_role_names   = lt_role_names
+              IMPORTING
+                ev_failed       = DATA(lv_failed)
+                et_messages     = DATA(lt_messages).
 
-          LOOP AT lt_messages INTO DATA(ls_message).
-            APPEND VALUE #( bname = ls_db_user_data-user_name
-                            message = VALUE #( msgty    = ls_message-type
-                                               msgid    = ls_message-id
-                                               msgno    = ls_message-number
-                                               msgv1    = ls_message-message_v1
-                                               msgv2    = ls_message-message_v2
-                                               msgv3    = ls_message-message_v3
-                                               msgv4    = ls_message-message_v4 ) ) TO ct_badi_message.
-          ENDLOOP.
-*        ENDIF.
-      ENDIF.
+            LOOP AT lt_messages INTO DATA(ls_message).
+              APPEND VALUE #( bname = ls_db_user_data-user_name
+                              message = VALUE #( msgty    = ls_message-type
+                                                 msgid    = ls_message-id
+                                                 msgno    = ls_message-number
+                                                 msgv1    = ls_message-message_v1
+                                                 msgv2    = ls_message-message_v2
+                                                 msgv3    = ls_message-message_v3
+                                                 msgv4    = ls_message-message_v4 ) ) TO ct_badi_message.
+            ENDLOOP.
+          ENDIF.
+        catch cx_rs2hana_view_nhi into data(lrx_nhi).
+          message lrx_nhi->get_text(  ) type rs_c_error.
+        CATCH cx_sy_itab_line_not_found.
+          "" Not reason to work on it, no update of PFCG roles
+      ENDTRY.
     ENDLOOP.
 
   ENDMETHOD.
